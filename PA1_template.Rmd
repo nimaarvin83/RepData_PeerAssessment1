@@ -1,35 +1,40 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: html_document
-keep_md: true
+title: 'Reproducible Research: Peer Assessment 1'
+output:
+  html_document: default
+  pdf_document: default
 runtime: knitr
+keep_md: yes
 ---
 ## Author : Nima Arvin
 
-### setting the global options to show the code and results for all code chunks
+## setting the global options to show the code and results for all code chunks
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Code for reading in the dataset and/or processing the data
+
+
+
+
+
+
+## Code for reading in the dataset and/or processing the data
 
 ```{r Loading the data , cache=TRUE}
 library(knitr)
+library(lubridate)
 wd <- getwd()
 zipfile <-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip",destfile=paste0(wd,"/file.zip")) 
 unzip(paste0(wd,"/file.zip"))
 maindata <- read.csv(paste0(wd,"/activity.csv"), header = TRUE)
+maindata$date <- ymd(maindata$date)
 summary(maindata)
 str(maindata)
-### Count of NA values in steps
-sum(is.na(maindata$steps))
-
 ```
 
 
-# Daily Activity Pattern
-
-## Mean, Total and Median of number of steps taken daily
+## Daily Activity Pattern
 
 ### What is mean total number of steps taken per day?
 ```{r}
@@ -45,45 +50,142 @@ dailymedians<- summarise(gdata, mean=median(steps, na.rm = TRUE))
 dailymedians
 ```
 
-
-### Histogram of the total number of steps taken each day
+### Total number of steps taken per day
 ```{r}
 dailytotals <- summarise(gdata, totals=sum(steps, na.rm = TRUE))
 dailytotals
-with(dailytotals,hist(totals))
+```
+
+### Histogram of the total number of steps taken each day
+```{r}
+with(dailytotals,hist(totals, col = "green"))
+```
+
+### Mean and Median of the total number of steps taken per day
+```{r}
+### Mean of total number of steps per day
+mean(dailytotals$totals)
+
+### Median of total number of steps per day
+median(dailytotals$totals)
+
 ```
 
 
-## What is the average daily activity pattern?
+
+### Time series plot of the 5 minutes interval
+
+```{r}
+library(dplyr)
+library(ggplot2)
+gidata <- group_by(maindata, interval)
+intervalmeans <- summarize(gidata, intmeans=mean(steps, na.rm = TRUE))
+intervalmeans
+
+g2 <- ggplot(intervalmeans, aes(interval, intmeans, group=1))
+g2+geom_point(col="black", size=1)+geom_line(col="red")+labs(title="Mean of number of steps per intervals", x="Intervals observed", y="Mean of number of steps")
+
+
+```
+
+### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+intervalmeans[intervalmeans[,2]==max(intervalmeans[,2]),]
+```
+
+
+
 ### Time series plot of the average number of steps taken
 ```{r}
-library(ggplot2)
 g <- ggplot(dailymeans, aes(date,mean, group=1))
-g + geom_point()+ geom_line()+geom_smooth(method = "glm", na.rm = TRUE)+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+labs(title="Average Steps Per Day",xlab="Observation Date",ylab="Mean of number of steps" )
+g + geom_point(col="red")+ geom_line()+geom_smooth(method = "glm", na.rm = TRUE)+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+labs(title="Average Steps Per Day",x="Observation Date",y="Mean of number of steps" )
 ```
 
 ### Are there differences in activity patterns between weekdays and weekends?
+```{r}
+library(lubridate)
+dailytotals$weekday <- wday(dailytotals$date, label = TRUE)
+wdg <- group_by(dailytotals, weekday)
+weekdayavg <- summarize(wdg, WeekdayAverage=mean(totals, na.rm = TRUE))
+g3 <- ggplot(weekdayavg, aes(weekday,WeekdayAverage, group=1))
+g3+geom_point(col="black", size=2)+geom_line(col="red")
+```
+
+
+### How did the weekdays trend looked like over time ?
+```{r}
+dailytotals$weekday <- wday(dailytotals$date, label = TRUE)
+g1 <- ggplot(dailytotals, aes(date, totals, group=weekday))
+g1+geom_point(size=1, col="black")+geom_line(col="red")+facet_grid(.~weekday)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_smooth(method = "lm")
+```
 
 
 ### Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+```{r}
+day <- weekdays(maindata$date)
+daylevel <- vector()
+for (i in 1:nrow(maindata)) {
+    if (day[i] == "Saturday") {
+        daylevel[i] <- "Weekend"
+    } else if (day[i] == "Sunday") {
+        daylevel[i] <- "Weekend"
+    } else {
+        daylevel[i] <- "Weekday"
+    }
+}
+maindata$daylevel <- daylevel
+maindata$daylevel <- factor(maindata$daylevel)
+
+gint <- group_by(maindata, daylevel, interval)
+aint <- summarize(gint,ave=mean(steps, na.rm = TRUE) )
 
 
-### The 5-minute interval that, on average, contains the maximum number of steps
+g4 <- ggplot(aint, aes(interval, ave, group=1))
+g4+geom_point(size=1, col="red")+ geom_line(col="black")+facet_grid(daylevel~.)
+
+
+
+```
 
 
 
 ## Imputing missing values
+
+### Calculate and report the total number of lines with missing values in the dataset
+```{r}
+sum(is.na(maindata))
+```
+
+### Get a report of the columns that have missing values
+```{r}
+summary(is.na(maindata))
+```
+
+
+
 ### Code to describe and show a strategy for imputing missing data
 
+1. The strategy will be to substitude the missing value with the mean of the number of steps for that interval
+```{r}
+z <- aggregate(steps~ interval, data = maindata,mean)
+for (i in 1:nrow(maindata)) {
+    if (is.na(maindata$steps[i])) {
+        maindata$steps[i] <- z[z[,1]==maindata$interval[i],2]
+    }
+}
+maindata.no.missing <- maindata
+summary(is.na(maindata.no.missing))
 
+```
 
 
 ### Histogram of the total number of steps taken each day after missing values are imputed
+```{r}
+
+ggroup <- summarise(group_by(maindata.no.missing, date),sum=sum(steps, na.rm = TRUE))
+with(ggroup, hist(sum, col = "red"))
+
+```
 
 
 
-
-
-
-
-### All of the R code needed to reproduce the results (numbers, plots, etc.) in the report

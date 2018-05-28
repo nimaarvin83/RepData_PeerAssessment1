@@ -1,0 +1,12 @@
+base
+methods
+datasets
+utils
+grDevices
+graphics
+stats
+knitr
+dplyr
+bindrcpp
+ggplot2
+lubridate

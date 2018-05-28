@@ -165,6 +165,9 @@ summary(maindata)</code></pre>
 <pre class="r"><code>library(dplyr)</code></pre>
 <pre><code>## 
 ## Attaching package: 'dplyr'</code></pre>
+<pre><code>## The following objects are masked from 'package:lubridate':
+## 
+##     intersect, setdiff, union</code></pre>
 <pre><code>## The following objects are masked from 'package:stats':
 ## 
 ##     filter, lag</code></pre>
@@ -284,13 +287,8 @@ g + geom_point(col=&quot;red&quot;)+ geom_line()+geom_smooth(method = &quot;glm&
 </div>
 <div id="are-there-differences-in-activity-patterns-between-weekdays-and-weekends" class="section level3">
 <h3>Are there differences in activity patterns between weekdays and weekends?</h3>
-<pre class="r"><code>library(lubridate)</code></pre>
-<pre><code>## 
-## Attaching package: 'lubridate'</code></pre>
-<pre><code>## The following object is masked from 'package:base':
-## 
-##     date</code></pre>
-<pre class="r"><code>dailytotals$weekday &lt;- wday(dailytotals$date, label = TRUE)
+<pre class="r"><code>library(lubridate)
+dailytotals$weekday &lt;- wday(dailytotals$date, label = TRUE)
 wdg &lt;- group_by(dailytotals, weekday)
 weekdayavg &lt;- summarize(wdg, WeekdayAverage=mean(totals, na.rm = TRUE))
 g3 &lt;- ggplot(weekdayavg, aes(weekday,WeekdayAverage, group=1))
